@@ -1,0 +1,552 @@
+---
+title: "HW01"
+author: "Tarun Viswanath"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+0. 
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+```
+
+
+1. 
+```{r}
+college_score = read_csv("college_scorecard_HW01.csv", na = "NULL")
+glimpse(college_score)
+```
+
+2. 
+a. City, INSTNM, INSTURL, are STABBR are characters (they should be). 
+
+Female, First_Gen, Grad_Debt_MDN, OPEID, PCT_Asian, PCT_Black, PCT_Hispanic, PCT_White and they shouldn't be. 
+
+b. These columns were read in as type character instead of double because they have quotations ("") around the numbers. 
+
+3. 
+```{r}
+college_score2 = read_csv("college_scorecard_HW01.csv", 
+                          na = c("", "NA", "non-numeric-value"), 
+                          col_types = cols(
+                            CITY = col_character(), 
+                            INSTNM = col_character(), 
+                            INSTURL = col_character(), 
+                            STABBR = col_character(), 
+                            date = col_date(), 
+                            .default = col_double()
+                          ))
+college_score2
+```
+
+4. 
+
+a. 
+```{r}
+ggplot(college_score2, aes(x = AVGFACSAL, y = MD_EARN_WNE_P10)) + geom_point(alpha = .75) + geom_smooth(se = FALSE) + facet_wrap(~ ICLEVEL)
+```
+
+
+b. Based on the plots, ICLEVEL 1 (Public Four-Year University) have higher median earnings for working students ten years after initial enrollments over ICLEVEL 2 (Community College) when there are higher faculty salaries. As we can see in the graphs, there is more of a positive, linear relationship between faculty salary and median earnings in ICLEVEL1. This may be attributed to the fact that community colleges cannot afford to pay their faculty more, so there isn't a lot of data to determine the relationship in ICLEVEL 2. 
+
+c. Because there is so much data, the mgcv::gam() smoothing method was used by geom_smooth. It uses the GAM (Generalized Additive Model), which is better at handling large datasets over other, more simpler smoothing methods. 
+
+d. There is no data in the ICLEVEL 3 plot because so much of the data is missing for colleges that are considered ICLEVEL 3. 
+
+e. 
+```{r}
+ICLEVEL1_data = subset(college_score2, ICLEVEL ==1)
+
+ICLEVEL1relationship = lm(MD_EARN_WNE_P10 ~ AVGFACSAL, data = ICLEVEL1_data)
+summary(ICLEVEL1relationship)
+```
+
+f. 
+Based on the results of the model, there is a significant relationship between average faculty salary and the median earnings of working students ten years after initial enrollment. This relationship is positive, as we see the coefficient for average faculty salary being 4.312, meaning that for every 1 increase in median earnings of working students ten years after initial enrollment, average faculty salary increases by 4.312. Based on the adjusted r-squared, this current model explains 52.5% of the relationship. 
+
+h. 
+Given the adjusted r-square value (.525), I would recommend to try adding more potentially significant predictor variables, such as admission rate and median graduation rate debt. 
+
+5. 
+
+a. 
+```{r, fig.width = 7}
+ggplot(college_score2, aes(x = ICLEVEL, y = MD_EARN_WNE_P10)) +
+geom_point(alpha = .8) + 
+geom_smooth(se = FALSE) + ggthemes::theme_fivethirtyeight() 
+```
+b. 
+The plot shows that the as the level of the institution goes down, so does the median earnings of students ten years after enrollment. 
+
+c. 
+```{r}
+MD_EARN_WNE_P10_logged = log(college_score2$MD_EARN_WNE_P10)
+
+loggedICLEVELrelationship = aov(MD_EARN_WNE_P10_logged ~ ICLEVEL, data = college_score2)
+```
+
+d. 
+```{r}
+broom::tidy(loggedICLEVELrelationship)
+```
+
+e. 
+
+We would want to look at the log of mean earnings instead of the un-logged values because we want less skewness in data (which lets us handle outliers). 
+
+6. 
+
+a. 
+```{r}
+plot(college_score2$UGDS_WOMEN, college_score2$MD_EARN_WNE_P10)
+```
+
+b. How does the Percentage of Women Undergraduates affect the median earnings of working students ten years after enrollment? 
+
+Based on the plot, it doesn't look like Percentage of Women Undergraduates has a strong affect on the median earnings of working students ten years after enrollment. There aren't many implications for school administrators or applicants since the median earnings barely increase if there is a high percentage of women undergraduates. 
+
+c. 
+
+```{r}
+zerohundred = college_score2 %>%
+  filter(UGDS_WOMEN %in% c(0, 100)) %>%
+  select(INSTNM, INSTURL, RELAFFIL, UGDS_WOMEN) %>%
+  arrange(UGDS_WOMEN, INSTNM)
+
+zerohundred
+
+```
+
+I've noticed that most of the schools are Jewish or at least religious. 
+
+d. 
+
+```{r}
+tenninety = college_score2 %>%
+  filter(UGDS_WOMEN > .10 & UGDS_WOMEN < .90) %>%
+  select(INSTNM, UGDS_WOMEN, MD_EARN_WNE_P10) %>%
+  arrange(UGDS_WOMEN, INSTNM)
+```
+
+```{r}
+head(tenninety)
+```
+
+```{r}
+ggplot(tenninety, aes(x = UGDS_WOMEN, y = MD_EARN_WNE_P10)) + geom_point() + geom_smooth()
+
+```
+
+e. I notice that there is a large concentration of undergraduate women making up 50-75% of a school's population. There isn't much of a connection between percentage of undergraduate women and median earnings of working students ten years after initial enrollment, so that might need to be studied further. 
+
+f. 
+```{r}
+number_six_model = lm(MD_EARN_WNE_P10 ~ UGDS_WOMEN, data = tenninety)
+
+summary(number_six_model)
+```
+g. 
+Since the coefficient of UDGS_Women is negative, we know that with every 1 increase of the median earnings of working students ten years after initial enrollment (past 55558), the number of undergraduate women decrease by 15577. This is a significant value since the p-value is below .05. However, due to the adjusted R-squared being so low (0.0144) the relationship between UDGS women and median salary is a small one. Or, at the very least, UDGS women only explain a very small percentage (1.44%) of the variability in median salary. 
+
+7. 
+
+```{r}
+race_data = college_score2 %>%
+  select(UGDS_AIAN, UGDS_ASIAN, UGDS_BLACK, UGDS_HISP, UGDS_NHPI, UGDS_NRA, UGDS_UNKN, UGDS_WHITE, MD_EARN_WNE_P10) %>% 
+  pivot_longer(
+    cols = starts_with("UGDS_"),
+      names_to = "Race/Ethnicity", 
+      values_to = "Median_Earnings") %>%
+    filter(complete.cases(.))
+  
+```
+
+a. 
+```{r}
+ninety_perc = race_data %>%
+  filter(`Race/Ethnicity` != "UGDS_WHITE") %>%
+  summarize(ninety_perc = quantile(college_score2$MD_EARN_WNE_P10, 0.90, na.rm = TRUE)) %>%
+  pull(ninety_perc)
+```
+
+```{r}
+ggplot(race_data, aes(x = Median_Earnings, y = MD_EARN_WNE_P10)) + geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm") + facet_wrap(~ `Race/Ethnicity`, scales = "free_x") + geom_vline(xintercept = .36, color = "red", lty = 3) 
+  
+  
+```
+
+b. 
+How does the undergraduate percentage of different races/ethnicities affect the median earnings of working students ten years after initial enrollment? 
+
+Based on the plot, we can see that schools with a higher undergraduate asian population tend to have higher median earnings. Undergraduate white population is very consistent, but might have slightly higher median earnings when it has more people. Meanwhile, black, hispanic, and native american student populations tend to have slightly reduced median earnings when there are more undergraduate students. 
+
+
+c. 
+Using a linear smoother might show misleading evidence, as it tends to impose a linear relationship that may appear stronger than it really is. This could lead to misrepresentations of the data and racist assumptions (in terms of this plot). Using a non-linear smoother does a better job at representing the true nature of the data and is good to use with large datasets. I'd recommend using the non-linear smoother in this data set if I wanted to "prove a point." Trying to prove a point by using a linear smoother in this data set would lead to innacurate conclusions. The non-linear smoother is much better at capturing complex relationships, as most of these should be in this plot.
+
+8. 
+
+a. 
+```{r}
+eighta_data = college_score2 %>%
+  filter(ICLEVEL == 1) %>%
+  filter(!is.na(COSTT4_A) & !is.na(GRAD_DEBT_MDN)) %>%
+  filter(!str_detect(OPEID, "......00"))
+```
+
+b. 
+```{r}
+class(eighta_data$MD_EARN_WNE_P10)
+class(eighta_data$GRAD_DEBT_MDN)
+```
+```{r}
+eighta_data = eighta_data %>%
+  mutate(GRAD_DEBT_MDN = as.numeric(GRAD_DEBT_MDN))
+```
+
+```{r}
+eighta_data = eighta_data %>%
+  mutate(DCR = AVGFACSAL/GRAD_DEBT_MDN)
+```
+
+```{r}
+eighta_data
+```
+
+c. 
+
+```{r}
+eighta_data = eighta_data %>%
+  arrange(DCR) %>%
+  mutate(rank = row_number()) %>%
+  mutate(rank = dense_rank(DCR))
+
+eighta_data
+```
+
+
+d. 
+
+```{r}
+top_five = eighta_data %>%
+  slice_head(n = 5) %>%
+  select(rank, INSTNM, DCR, COSTT4_A, GRAD_DEBT_MDN, MD_EARN_WNE_P10)
+
+top_five
+```
+
+```{r}
+bottom_five = eighta_data %>%
+  filter(!is.na(DCR)) %>%
+  slice_tail(n = 5) %>%
+  select(rank, INSTNM, DCR, COSTT4_A, GRAD_DEBT_MDN, MD_EARN_WNE_P10)
+
+bottom_five
+```
+
+e. 
+
+```{r}
+AU = eighta_data %>%
+  filter(INSTNM == "American University") %>%
+  select(rank, INSTNM, DCR, COSTT4_A, GRAD_DEBT_MDN, MD_EARN_WNE_P10)
+
+AU
+
+```
+
+American University's rank is 1427 and their DCR is 0.5444835
+
+
+#World Bank 
+
+1. 
+```{r}
+country_income = read_csv("wb_country_income_classification_2023.csv", na = "NULL")
+
+fertility = read_csv("wb_fertility_2022.csv", na = "NULL")
+
+life_exp = read_csv("wb_life_exp_2022.csv", na = "NULL")
+
+wb_pop = read_csv("wb_pop_2023.csv", na = "NULL")
+```
+
+```{r}
+head(country_income)
+head(fertility)
+head(life_exp)
+head(wb_pop)
+```
+
+```{r}
+#fertility changes
+fertility = fertility %>%
+  mutate(across(5:68, ~ as.double(.)))
+
+fertility
+```
+
+```{r}
+#life_exp changes
+life_exp = life_exp %>%
+   mutate(across(5:68, ~ as.double(.)))
+
+life_exp
+```
+
+```{r}
+#wb_pop changes
+wb_pop = wb_pop %>%
+  mutate(across(5:68, ~ as.double(.)))
+
+wb_pop
+```
+
+```{r}
+problems(country_income)
+problems(fertility)
+problems(life_exp)
+problems(wb_pop)
+```
+
+
+2. 
+```{r}
+country_income = country_income %>%
+  rename(CC = Code)
+wb_pop = wb_pop %>%
+  rename(CC = `Country Code`)
+fertility = fertility %>%
+  rename(CC = `Country Code`)
+life_exp = life_exp %>%
+  rename(CC = `Country Code`)
+```
+
+```{r}
+country_not_in_pop = anti_join(country_income, wb_pop, by = "CC")
+
+pop_not_in_country = anti_join(wb_pop, country_income, by = "CC")
+
+country_not_in_pop
+pop_not_in_country
+```
+
+The country not in the population is Taiwan. The population not in the country is the total population. 
+
+3. 
+
+a. 
+```{r}
+#fertility tidy
+fertility_tidy = fertility %>% 
+  rename_with(~ str_remove(., "\\s\\[.*\\]")) %>%
+  pivot_longer(
+    cols = matches("^[12]"),
+    names_to = "Year"
+  ) %>%
+  select(-c(1:2)) %>%
+  rename(fertility_rate = value)
+
+head(fertility_tidy)
+```
+
+```{r}
+#life_exp tidy
+life_exp_tidy = life_exp %>%
+  rename_with(~ str_remove(., "\\s\\[.*\\]")) %>%
+  pivot_longer(
+    cols = matches("^[12]"),
+    names_to = "Year"
+  ) %>%
+  select(-c(1:2)) %>%
+  rename(fertility_rate = value)
+
+head(fertility_tidy)
+```
+
+```{r}
+#wb_pop tidy
+wb_pop_tidy = wb_pop %>% 
+  rename_with(~ str_remove(., "\\s\\[.*\\]")) %>%
+  pivot_longer(
+  cols = matches("^[12]"),
+    names_to = "Year"
+) %>%
+  select(-c(1:2)) %>%
+  rename(population = value)
+
+head(wb_pop_tidy)
+
+```
+
+b. 
+
+```{r}
+#fertility tidy
+fertility_tidy$Year = as.numeric(fertility_tidy$Year)
+
+glimpse(fertility_tidy)
+```
+
+```{r}
+#life_exp tidy
+life_exp_tidy$Year = as.numeric(life_exp_tidy$Year)
+
+glimpse(life_exp_tidy)
+```
+
+
+```{r}
+#wb_pop tidy 
+wb_pop_tidy$Year = as.numeric(wb_pop_tidy$Year)
+
+glimpse(wb_pop_tidy)
+
+```
+
+c. 
+
+```{r}
+#fertility tidy
+fertility_tidy = fertility_tidy %>%
+  drop_na()
+
+fertility_tidy
+```
+
+```{r}
+#life_exp tidy
+life_exp_tidy = life_exp_tidy %>%
+  drop_na()
+
+life_exp_tidy
+```
+
+```{r}
+#wb_pop tidy
+wb_pop_tidy = wb_pop_tidy %>%
+  drop_na()
+
+wb_pop_tidy
+```
+
+d. 
+
+```{r}
+#fertility tidy
+tidied_fertility = fertility_tidy
+```
+
+```{r}
+#life_exp tidy
+tidied_life_exp = life_exp_tidy
+```
+
+```{r}
+#wb_pop tidy
+tidied_wb_pop = wb_pop_tidy
+```
+
+e. 
+
+```{r}
+#fertility tidy
+count(tidied_fertility)
+head(tidied_fertility)
+```
+
+```{r}
+#life_exp tidy
+count(tidied_life_exp)
+head(tidied_life_exp)
+```
+
+```{r}
+#wb_pop tidy
+count(tidied_wb_pop)
+head(tidied_life_exp)
+```
+
+
+4. 
+
+a. 
+```{r}
+fert_life_exp = wb_pop_tidy %>%
+  left_join(fertility_tidy, by = c("Country Name", "CC", "Year")) %>%
+  left_join(life_exp_tidy, by = c("Country Name", "CC", "Year")) %>%
+  rename(fertility_rate = fertility_rate.x) %>%
+  rename(life_expectancy = fertility_rate.y)
+
+glimpse(fert_life_exp)
+```
+
+b. 
+```{r}
+final_joined_data = fert_life_exp %>%
+  left_join(country_income, by = c("CC"))
+
+glimpse(final_joined_data)
+
+```
+
+5. 
+
+```{r}
+not_matched = final_joined_data %>%
+  filter(!is.na(Region)) %>%
+  filter(`Country Name` != Economy) %>%
+  select(`Country Name`, Economy)
+
+not_matched
+```
+
+The five countries that do not match each other are that way because the country name is missing some accents on the words. 
+
+6. 
+
+a. 
+```{r}
+giant_plot = final_joined_data %>%
+  drop_na(fertility_rate, life_expectancy) %>%
+  filter(!is.na(Region), Year %in% c(1960, 1980, 2000, 2020))
+
+```
+
+```{r}
+ggplot(giant_plot, aes(x = life_expectancy, y = fertility_rate, color = Region, size = population)) + 
+  geom_point(alpha = 0.7) + facet_wrap(~ Year) + scale_color_viridis_d()
+```
+
+b. 
+Fertility rate for most regions seems to have been decreasing 1980, the life expectancy of most regions seems to have been increasing for all of the regions as well. 
+
+7. 
+
+a. 
+
+```{r}
+pop_by_region = final_joined_data %>%
+  filter(!is.na(Region)) %>%
+  group_by(Region, Year) %>%
+  summarize(total_pop = sum(population, na.rm = TRUE))
+
+```
+b. 
+```{r}
+ggplot(pop_by_region, aes(x = Year, y = total_pop, color = Region, group = Region)) + geom_line() + scale_y_log10() + scale_color_colorblind()
+
+```
+
+
+c. The two fastest growing regions are East Asia & Pacific and South Asia. 
+
