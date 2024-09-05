@@ -549,4 +549,3 @@ ggplot(pop_by_region, aes(x = Year, y = total_pop, color = Region, group = Regio
 
 
 c. The two fastest growing regions are East Asia & Pacific and South Asia. 
-
